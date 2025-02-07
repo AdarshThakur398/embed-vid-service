@@ -29,6 +29,10 @@ const upload = multer({
         }
     }
 })
+app.get('/', (req, res) => {
+    res.send('Server is running!');
+});
+
 
 app.post('/api/upload',upload.single('video'),(req,res) => {
     if(!req.file) {
