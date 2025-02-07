@@ -68,8 +68,33 @@ app.post('/api/generated-embed',(req,res)=> {
 `
 };
 try {
-    
-}
+    let embedCode;
+    if (platform === 'local') {
+      embedCode = embedTemplates.local(videoUrl);
+    } else {
+      const platformRegexes = {
+        youtube: [
+          /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/,
+          /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^?&]+)/
+        ],
+        dailymotion: [/(?:https?:\/\/)?(?:www\.)?dailymotion\.com\/video\/([^_]+)/]
+      };
+      const regex = platformRegexes[platform].find(r => r.test(videoUrl));
+      if (!regex) throw new Error('Invalid URL');
+
+      const videoId = videoUrl.match(regex)[1];
+      embedCode = embedTemplates[platform](videoId);
     }
-})
+
+    res.json({ embedCode });
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid video URL' });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+    
 
