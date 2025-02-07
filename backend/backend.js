@@ -1,52 +1,57 @@
-const express=require('express');
-const multer=require('multer');
-const cors=require('cors');
+const express = require('express');
+const multer = require('multer');
+const cors = require('cors');
+const path = require('path');
 
-const path=require('path');
-const app=express();
+const app = express();
 app.use(cors());
 app.use(express.json());
-app.use('/uploads',express.static('uploads'));
+app.use('/uploads', express.static('uploads'));
 
+app.use(express.static(path.join(__dirname, '../frontend/build')));
 
-const  storage=multer.diskStorage({
-    destination:(req,file,cb)  => {
-        cb(null,'uploads/');
-    },
-    filename:(req,file,cb) => {
-        cb(null,`${Date.now()}-${file.originalname}`);
-    }
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+});
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
 });
 
 const upload = multer({
-    storage:storage,
-    fileFilter:(req,file,cb) => {
-        const allowedTypes =['video/mp4','video/webm','video/ogg'];
-        if(allowedTypes.includes(file.mimetype)){
-            cb(null,true);
-        } else {
-            cb(new Error('Invalid File type'));
-        }
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid File type'));
     }
-})
-app.get('/', (req, res) => {
-    res.send('Server is running!');
+  },
 });
 
+app.post('/api/upload', upload.single('video'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  res.json({ videoUrl: `/uploads/${req.file.filename}` });
+});
 
-app.post('/api/upload',upload.single('video'),(req,res) => {
-    if(!req.file) {
-        return res.status(400).json({error:'NO file Uploaded'});
+app.post('/api/generate-embed', (req, res) => {
+  console.log('Received data:', req.body);
+  const { videoUrl, platform } = req.body;
 
-    }
-    res.json({
-        videoUrl:`/uploads/${req.file.filename}`
-    });
-})
-app.post('/api/generated-embed',(req,res)=> {
-    const {videoUrl,platform}=req.body;
-    const embedTemplate = {
-        youtube: (id) => `
+  if (!videoUrl || !platform) {
+    return res.status(400).json({ error: 'Missing videoUrl or platform' });
+  }
+
+  const embedTemplates = {
+    youtube: (id) => `
       <iframe 
         width="560" 
         height="315" 
@@ -56,35 +61,37 @@ app.post('/api/generated-embed',(req,res)=> {
       </iframe>
     `,
     dailymotion: (id) => `
-    <iframe 
-      width="560" 
-      height="315" 
-      src="https://www.dailymotion.com/embed/video/${id}" 
-      frameborder="0" 
-      allowfullscreen>
-    </iframe>
-  `,
-  local: (url) => `
-  <video width="560" height="315" controls>
-    <source src="${url}" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
-`
-};
-try {
-    let embedCode;
+      <iframe 
+        width="560" 
+        height="315" 
+        src="https://www.dailymotion.com/embed/video/${id}" 
+        frameborder="0" 
+        allowfullscreen>
+      </iframe>
+    `,
+    local: (url) => `
+      <video width="560" height="315" controls>
+        <source src="${url}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    `,
+  };
+
+  try {
+    let embedCode = '';
+
     if (platform === 'local') {
       embedCode = embedTemplates.local(videoUrl);
     } else {
       const platformRegexes = {
-        youtube: [
-          /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/,
-          /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^?&]+)/
-        ],
-        dailymotion: [/(?:https?:\/\/)?(?:www\.)?dailymotion\.com\/video\/([^_]+)/]
+        youtube: [/youtube\.com\/.*v=([^&]+)/, /youtu\.be\/([^?]+)/],
+        dailymotion: [/dailymotion\.com\/video\/([^_]+)/],
       };
-      const regex = platformRegexes[platform].find(r => r.test(videoUrl));
-      if (!regex) throw new Error('Invalid URL');
+
+      const regex = platformRegexes[platform].find((r) => videoUrl.match(r));
+      if (!regex) {
+        return res.status(400).json({ error: 'Invalid video URL' });
+      }
 
       const videoId = videoUrl.match(regex)[1];
       embedCode = embedTemplates[platform](videoId);
@@ -92,7 +99,7 @@ try {
 
     res.json({ embedCode });
   } catch (error) {
-    res.status(400).json({ error: 'Invalid video URL' });
+    res.status(400).json({ error: 'Error generating embed code' });
   }
 });
 
@@ -100,5 +107,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-    
-
