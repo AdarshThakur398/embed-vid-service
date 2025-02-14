@@ -8,18 +8,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
 app.use('/uploads', express.static(uploadDir));
-app.use(express.static(path.join(__dirname, '../frontend/build')));
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
-});
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/build')));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+  });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
@@ -40,6 +43,7 @@ const upload = multer({
     }
   },
 });
+
 app.post('/api/upload', upload.single('video'), (req, res) => {
   console.log('Upload request received');
   console.log('Uploaded file:', req.file);
