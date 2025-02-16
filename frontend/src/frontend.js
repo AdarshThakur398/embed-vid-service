@@ -7,7 +7,7 @@ const VideoEmbedGenerator = () => {
   const [embedCode, setEmbedCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const redirectUrl = "https://your-redirect-link.com";
+  const redirectUrl = "https://portfolio1-sigma-lake.vercel.app/";
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
   
