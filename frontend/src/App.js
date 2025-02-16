@@ -1,6 +1,8 @@
 import logo from './logo.svg';
 import './App.css';
 import VideoEmbedGenerator from './frontend';
+import './globals.css';
+
 
 function App() {
   return (
